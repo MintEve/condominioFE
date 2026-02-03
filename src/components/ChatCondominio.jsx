@@ -5,77 +5,138 @@ import axios from 'axios';
 const ChatCondominio = () => {
     const [mensajes, setMensajes] = useState([]);
     const [nuevoMensaje, setNuevoMensaje] = useState("");
-    
-    // Usamos useRef para que el prompt solo salga una vez y no se repita
-    const deptoAsignado = useRef(null);
-    if (!deptoAsignado.current) {
-        deptoAsignado.current = prompt("¿Qué departamento eres? (Escribe 1 o 2)") || "1";
+    const deptoRef = useRef(null);
+
+    if (!deptoRef.current) {
+        deptoRef.current = prompt("¿Qué depto eres? (1 o 2)") || "1";
     }
-    const myDepaId = deptoAsignado.current;
+    const myId = deptoRef.current;
 
     useEffect(() => {
-        console.log("Conectando al canal de depto:", myDepaId);
-        const channel = echo.channel(`chat-depa-${myDepaId}`);
+        const channel = echo.channel(`chat-depa-${myId}`);
         
+        // El punto antes de NuevoMensaje es CRUCIAL por el broadcastAs
         channel.listen('.NuevoMensaje', (e) => {
-            console.log("¡Llegó mensaje por WebSocket!", e);
             setMensajes((prev) => [...prev, e.mensaje]);
         });
 
         return () => channel.stopListening('.NuevoMensaje');
-    }, [myDepaId]);
+    }, [myId]);
 
-    const enviarAlBackend = async (e) => {
+    const enviar = async (e) => {
         e.preventDefault();
-        console.log("Intentando enviar:", nuevoMensaje); // Para ver en consola F12
-
         if (!nuevoMensaje.trim()) return;
 
         try {
-            const response = await axios.post('http://127.0.0.1:8000/api/enviar-mensaje', {
+            const res = await axios.post('http://127.0.0.1:8000/api/enviar-mensaje', {
                 remitente: 1, 
                 destinatario: 2,
-                id_depaa: parseInt(myDepaId),
-                id_depab: myDepaId === "1" ? 2 : 1, 
+                id_depaa: parseInt(myId),
+                id_depab: myId === "1" ? 2 : 1, 
                 mensaje: nuevoMensaje
             });
-            console.log("Respuesta del servidor:", response.data);
+            // Agregamos el nuestro manualmente
+            setMensajes((prev) => [...prev, res.data]);
             setNuevoMensaje(""); 
-        } catch (error) {
-            console.error("ERROR DETALLADO:", error);
-            alert("Error al enviar. Revisa la consola (F12) y que el Backend esté en 'php artisan serve'");
+        } catch (err) {
+            console.error(err);
         }
     };
 
-    return (
-        <div style={{ maxWidth: '500px', margin: '20px auto', fontFamily: 'sans-serif', border: '1px solid #ddd', borderRadius: '8px', display: 'flex', flexDirection: 'column', height: '80vh', backgroundColor: '#fff' }}>
-            <div style={{ padding: '15px', backgroundColor: '#075e54', color: 'white' }}>
-                <h2 style={{ margin: 0 }}>Chat Condominio - Depto {myDepaId}</h2>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '15px', backgroundColor: '#e5ddd5' }}>
-                {mensajes.map((m, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: m.id_depaa == myDepaId ? 'flex-end' : 'flex-start', marginBottom: '10px' }}>
-                        <div style={{ backgroundColor: m.id_depaa == myDepaId ? '#dcf8c6' : '#fff', padding: '8px 12px', borderRadius: '8px', maxWidth: '80%' }}>
-                            <small style={{ display: 'block', color: '#888', fontSize: '0.7rem' }}>Depto {m.id_depaa}</small>
-                            {m.mensaje}
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <form onSubmit={enviarAlBackend} style={{ display: 'flex', padding: '10px', background: '#eee' }}>
-                <input 
-                    type="text" 
-                    value={nuevoMensaje} 
-                    onChange={(e) => setNuevoMensaje(e.target.value)}
-                    placeholder="Escribe un mensaje..."
-                    style={{ flex: 1, padding: '10px', borderRadius: '20px', border: '1px solid #ccc' }}
-                />
-                <button type="submit" style={{ marginLeft: '10px', padding: '10px 20px', backgroundColor: '#128c7e', color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer' }}>
-                    Enviar
-                </button>
-            </form>
+return (
+    <div style={{ 
+        maxWidth: '500px', 
+        margin: '20px auto', 
+        fontFamily: 'Arial, sans-serif',
+        height: '85vh',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#f0f2f5', // Gris claro de fondo
+        borderRadius: '12px',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+        overflow: 'hidden'
+    }}>
+        {/* Encabezado */}
+        <div style={{ padding: '15px', backgroundColor: '#075e54', color: '#ffffff', textAlign: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Admin Condominio</h3>
+            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Conectado como Depto: {myId}</span>
         </div>
-    );
+
+        {/* Área de Mensajes */}
+        <div style={{ 
+            flex: 1, 
+            padding: '20px', 
+            overflowY: 'auto', 
+            display: 'flex', 
+            flexDirection: 'column',
+            gap: '10px'
+        }}>
+            {mensajes.length === 0 && (
+                <p style={{ textAlign: 'center', color: '#999', marginTop: '20px' }}>No hay mensajes aún...</p>
+            )}
+            
+            {mensajes.map((m, i) => (
+                <div key={i} style={{ 
+                    alignSelf: m.id_depaa == myId ? 'flex-end' : 'flex-start',
+                    maxWidth: '80%'
+                }}>
+                    <div style={{ 
+                        backgroundColor: m.id_depaa == myId ? '#dcf8c6' : '#ffffff', 
+                        color: '#333333', // Letras oscuras para que se vean bien
+                        padding: '10px 14px', 
+                        borderRadius: '12px',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                        fontSize: '0.95rem',
+                        lineHeight: '1.4'
+                    }}>
+                        {/* Etiqueta del depto que envió */}
+                        <div style={{ fontWeight: 'bold', fontSize: '0.7rem', color: '#075e54', marginBottom: '4px' }}>
+                            Depto {m.id_depaa}
+                        </div>
+                        {m.mensaje}
+                    </div>
+                </div>
+            ))}
+        </div>
+
+        {/* Barra de Entrada */}
+        <form onSubmit={enviar} style={{ 
+            padding: '15px', 
+            backgroundColor: '#ffffff', 
+            display: 'flex', 
+            alignItems: 'center',
+            gap: '10px',
+            borderTop: '1px solid #ddd'
+        }}>
+            <input 
+                type="text" 
+                value={nuevoMensaje} 
+                onChange={e => setNuevoMensaje(e.target.value)}
+                placeholder="Escribir mensaje..."
+                style={{ 
+                    flex: 1, 
+                    padding: '12px', 
+                    borderRadius: '25px', 
+                    border: '1px solid #ccc',
+                    outline: 'none',
+                    fontSize: '1rem',
+                    color: '#000' // Texto negro al escribir
+                }}
+            />
+            <button type="submit" style={{ 
+                backgroundColor: '#128c7e', 
+                color: 'white', 
+                border: 'none', 
+                padding: '12px 20px', 
+                borderRadius: '25px', 
+                fontWeight: 'bold',
+                cursor: 'pointer'
+            }}>
+                Enviar
+            </button>
+        </form>
+    </div>
+);
 };
 
 export default ChatCondominio;
